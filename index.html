@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Logo Engine & Shape Studio</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #0c0e17;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .app-layout {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 24px;
+            max-width: 1200px;
+            width: 100%;
+            background: #151824;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+        @media (max-width: 950px) {
+            .app-layout { grid-template-columns: 1fr; }
+        }
+        .canvas-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #0d0f16;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+        .upload-zone {
+            border: 2px dashed #2d324a;
+            padding: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            background: #111420;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            background: #171b2d;
+        }
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #2d324a; border-radius: 4px; }
+        
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+            margin: 12px 0 4px 0;
+            border-bottom: 1px solid #23283b;
+            padding-bottom: 4px;
+        }
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .preset-btn {
+            background: #1e2335;
+            border: 1px solid #2d324a;
+            color: #fff;
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .preset-btn:hover { background: #272d44; border-color: #3b82f6; }
+        
+        .control-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        input[type="range"], select, input[type="text"] {
+            background: #1e2335;
+            color: white;
+            border: 1px solid #2d324a;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        input[type="range"] { padding: 0; cursor: pointer; }
+        
+        .color-pickers { display: flex; gap: 8px; align-items: center; }
+        input[type="color"] {
+            border: none; width: 34px; height: 34px; cursor: pointer; background: none; padding: 0;
+        }
+        canvas {
+            max-width: 100%;
+            background: #0f111a;
+            border-radius: 8px;
+            cursor: grab;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        canvas:active { cursor: grabbing; }
+        
+        .btn-container { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        button.main-btn {
+            background: #2563eb; color: white; border: none; padding: 12px;
+            border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s;
+        }
+        button.main-btn:hover { background: #1d4ed8; }
+        button.secondary-btn {
+            background: transparent; color: #94a3b8; border: 1px solid #2d324a;
+            padding: 8px; border-radius: 6px; font-size: 12px; cursor: pointer;
+        }
+        button.secondary-btn:hover { color: white; background: #1e2335; }
+
+        .smart-suggestion {
+            background: #064e3b; border: 1px solid #047857;
+            padding: 10px; border-radius: 6px; font-size: 12px;
+            display: none; align-items: center; justify-content: space-between;
+        }
+        .smart-suggestion button {
+            background: #047857; border: none; color: white;
+            padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- Visual Output Canvas Pane -->
+    <div class="canvas-area">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <p style="margin:0; font-size:13px; font-weight:500;">🎨 Drag & Drop Image or Click to Open Design Asset</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <canvas id="canvas" width="500" height="500"></canvas>
+        <p style="font-size: 11px; color:#475569; margin-top: 10px;">💡 Click and drag directly over the image window layer to slide position elements</p>
+    </div>
+
+    <!-- Parameter Configurations Sidebar Controls -->
+    <div class="sidebar" id="controlsUi" style="display: none;">
+        <h3 style="margin: 0 0 5px 0; font-size: 20px;">Brand Studio Core</h3>
+        
+        <div class="smart-suggestion" id="smartPanel">
+            <span>✨ Palette analysis calculated.</span>
+            <button id="applySmartColor">Match Accent Tones</button>
+        </div>
+
+        <div class="section-title">Design Engine Style Presets</div>
+        <div class="preset-grid">
+            <button class="preset-btn" onclick="applyPreset('cyber')">👾 Cyber Neon</button>
+            <button class="preset-btn" onclick="applyPreset('minimal')">🏳️ Clean Minimal</button>
+            <button class="preset-btn" onclick="applyPreset('shieldDark')">🛡️ Tactical Badge</button>
+        </div>
+
+        <div class="section-title">Framing Geometry</div>
+        <div class="control-row">
+            <div class="control-group">
+                <label for="cropShape">Geometric Mask</label>
+                <select id="cropShape">
+                    <option value="circle">Circular Emblem</option>
+                    <option value="square">Square Boundary</option>
+                    <option value="shield">Classic Shield</option>
+                    <option value="hexagon">Polygon Hexagon</option>
+                    <option value="star">Geometric Star</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label id="radiusLabel">Outer Size: 150px</label>
+                <input type="range" id="radius" min="50" max="240" value="150">
+            </div>
+        </div>
+
+        <div class="section-title">Graphic Asset Scaling</div>
+        <div class="control-row">
+            <div class="control-group">
+                <label id="zoomLabel">Zoom Scale: 100%</label>
+                <input type="range" id="zoom" min="10" max="300" value="100">
+            </div>
+            <div class="control-group">
+                <button class="secondary-btn" id="resetPosBtn" style="margin-top: 18px;">🔄 Reset Position</button>
+            </div>
+        </div>
+        <!-- Hidden Coordinate System Controllers for Vector Pipeline mapping integration -->
+        <input type="range" id="offsetX" min="-500" max="500" value="0" style="display:none;">
+        <input type="range" id="offsetY" min="-500" max="500" value="0" style="display:none;">
+
+        <div class="section-title">Asset Filters & Image Adjustments</div>
+        <div class="control-row">
+            <div class="control-group">
+                <label id="brightLabel">Brightness: 100%</label>
+                <input type="range" id="brightness" min="0" max="200" value="100">
+            </div>
+            <div class="control-group">
+                <label id="contrastLabel">Contrast: 100%</label>
+                <input type="range" id="contrast" min="0" max="200" value="100">
+            </div>
+        </div>
+        <div class="control-row">
+            <div class="control-group">
+                <label id="grayLabel">Grayscale Desaturate: 0%</label>
+                <input type="range" id="grayscale" min="0" max="100" value="0">
+            </div>
+        </div>
+
+        <div class="section-title">Stroke Framing & FX Layer</div>
+        <div class="control-row">
+            <div class="control-group">
+                <label id="borderLabel">Stroke Thickness: 4px</label>
+                <input type="range" id="borderWidth" min="0" max="25" value="4">
+            </div>
+            <div class="control-group">
+                <label id="shadowLabel">Glow Outer Radius: 0px</label>
+                <input type="range" id="shadowBlur" min="0" max="30" value="0">
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="control-group">
+                <label>Background Fill</label>
+                <div class="color-pickers">
+                    <input type="checkbox" id="transparentBg" checked> <span style="font-size:12px">Alpha transparent</span>
+                    <input type="color" id="bgColor" value="#ffffff" style="display:none;">
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Frame Line & Glow Color</label>
+                <input type="color" id="borderColor" value="#2563eb">
+            </div>
+        </div>
+
+        <div class="section-title">Arc Path Typography Labels</div>
+        <div class="control-group">
+            <label for="topText">Top Header Wording</label>
+            <input type="text" id="topText" placeholder="BRAND NAME">
+        </div>
+        <div class="control-group">
+            <label for="bottomText">Bottom Footer Wording</label>
+            <input type="text" id="bottomText" placeholder="PRODUCTION GRADE">
+        </div>
+
+        <div class="control-row">
+            <div class="control-group">
+                <label id="textSizeLabel">Font Size: 22px</label>
+                <input type="range" id="textSize" min="10" max="50" value="22">
+            </div>
+            <div class="control-group">
+                <label>Typography Base Tint</label>
+                <input type="color" id="textColor" value="#ffffff">
+            </div>
+        </div>
+
+        <div class="section-title">Compilation Export Target</div>
+        <div class="control-group">
+            <label for="exportSize">Target Image Spec Matrix Layout</label>
+            <select id="exportSize">
+                <option value="32">Web Footprint Favicon Format (32 x 32 px)</option>
+                <option value="512" selected>Standard Core Application Launcher (512 x 512 px)</option>
+                <option value="2048">Master High-Res Graphics Archive (2048 x 2048 px)</option>
+            </select>
+        </div>
+
+        <div class="btn-container">
+            <button class="main-btn" id="downloadBtn">📦 Build and Download Asset (PNG)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const controlsUi = document.getElementById('controlsUi');
+    
+    // Core Parameters Node Array Mapping System
+    const cropShape = document.getElementById('cropShape');
+    const radiusSlider = document.getElementById('radius');
+    const zoomSlider = document.getElementById('zoom');
+    const xSlider = document.getElementById('offsetX');
+    const ySlider = document.getElementById('offsetY');
+    const resetPosBtn = document.getElementById('resetPosBtn');
+    
+    // Filters Nodes Mapping Layout
+    const brightnessSlider = document.getElementById('brightness');
+    const contrastSlider = document.getElementById('contrast');
+    const grayscaleSlider = document.getElementById('grayscale');
+    
+    // Aesthetic Styling Target Elements
+    const borderWidthSlider = document.getElementById('borderWidth');
+    const shadowBlurSlider = document.getElementById('shadowBlur');
+    const borderColorPicker = document.getElementById('borderColor');
+    const transparentBgCheckbox = document.getElementById('transparentBg');
+    const bgColorPicker = document.getElementById('bgColor');
+    
+    // Typography System Input Nodes
+    const topTextInput = document.getElementById('topText');
+    const bottomTextInput = document.getElementById('bottomText');
+    const textSizeSlider = document.getElementById('textSize');
+    const textColorPicker = document.getElementById('textColor');
+    
+    const exportSizeSelect = document.getElementById('exportSize');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const smartPanel = document.getElementById('smartPanel');
+    const applySmartColorBtn = document.getElementById('applySmartColor');
+
+    let img = new Image();
+    let extractedSmartColor = "#2563eb";
+
+    // Direct Interaction State Properties
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => { img.src = event.target.result; };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    transparentBgCheckbox.addEventListener('change', (e) => {
+        bgColorPicker.style.display = e.target.checked ? 'none' : 'inline-block';
+        draw();
+    });
+
+    resetPosBtn.addEventListener('click', () => {
+        xSlider.value = 0;
+        ySlider.value = 0;
+        zoomSlider.value = 100;
+        draw();
+    });
+
+    img.onload = () => {
+        controlsUi.style.display = 'flex';
+        extractedSmartColor = getProminentColor(img);
+        smartPanel.style.display = 'flex';
+        draw();
+    };
+
+    applySmartColorBtn.addEventListener('click', () => {
+        borderColorPicker.value = extractedSmartColor;
+        textColorPicker.value = extractedSmartColor;
+        draw();
+    });
+
+    // Preset Style Configuration State Machine Object
+    const presets = {
+        cyber: { shape: 'hexagon', border: '#ff0055', bg: '#080911', txt: '#00ffff', borderW: 6, shadow: 18, radius: 150 },
+        minimal: { shape: 'circle', border: '#e2e8f0', bg: '#ffffff', txt: '#0f172a', borderW: 4, shadow: 0, radius: 150 },
+        shieldDark: { shape: 'shield', border: '#f59e0b', bg: '#1e293b', txt: '#ffffff', borderW: 5, shadow: 12, radius: 160 }
+    };
+
+    window.applyPreset = function(name) {
+        const p = presets[name];
+        cropShape.value = p.shape;
+        borderColorPicker.value = p.border;
+        bgColorPicker.value = p.bg;
+        textColorPicker.value = p.txt;
+        borderWidthSlider.value = p.borderW;
+        shadowBlurSlider.value = p.shadow;
+        radiusSlider.value = p.radius;
+        transparentBgCheckbox.checked = false;
+        bgColorPicker.style.display = 'inline-block';
+        draw();
+    };
+
+    // Canvas Point Vector Coordinate Drag Listeners
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        const rect = canvas.getBoundingClientRect();
+        dragStartX = (e.clientX - rect.left) - parseInt(xSlider.value);
+        dragStartY = (e.clientY - rect.top) - parseInt(ySlider.value);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        xSlider.value = (e.clientX - rect.left) - dragStartX;
+        ySlider.value = (e.clientY - rect.top) - dragStartY;
+        draw();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    // Component event tracking linkage array looping structures
+    const pipeControls = [
+        cropShape, radiusSlider, zoomSlider, brightnessSlider, contrastSlider, grayscaleSlider,
+        borderWidthSlider, shadowBlurSlider, borderColorPicker, transparentBgCheckbox, 
+        bgColorPicker, topTextInput, bottomTextInput, textSizeSlider, textColorPicker
+    ];
+    pipeControls.forEach(ctrl => ctrl.addEventListener('input', draw));
+
+    // Polymorphic Shape Generation Vector Path Engine System
+    function buildShapePath(context, cx, cy, size, shape) {
+        context.beginPath();
+        if (shape === 'circle') {
+            context.arc(cx, cy, size, 0, Math.PI * 2);
+        } else if (shape === 'square') {
+            context.rect(cx - size, cy - size, size * 2, size * 2);
+        } else if (shape === 'shield') {
+            // High fidelity vector calculation formula mapping classic emblems
+            context.moveTo(cx, cy - size);
+            context.lineTo(cx + size, cy - size * 0.8);
+            context.quadraticCurveTo(cx + size, cy + size * 0.2, cx, cy + size);
+            context.quadraticCurveTo(cx - size, cy + size * 0.2, cx - size, cy - size * 0.8);
+            context.lineTo(cx, cy - size);
+        } else if (shape === 'hexagon') {
+            for (let i = 0; i < 6; i++) {
+                const ang = (Math.PI / 3) * i - Math.PI / 2;
+                context.lineTo(cx + size * Math.cos(ang), cy + size * Math.sin(ang));
+            }
+        } else if (shape === 'star') {
+            for (let i = 0; i < 10; i++) {
+                const r = i % 2 === 0 ? size : size * 0.45;
+                const ang = (Math.PI / 5) * i - Math.PI / 2;
+                context.lineTo(cx + r * Math.cos(ang), cy + r * Math.sin(ang));
+            }
+        }
+        context.closePath();
+    }
+
+    // AI Average Core Extraction Sampling Engine 
+    function getProminentColor(srcImg) {
+        const c = document.createElement('canvas'); const t = c.getContext('2d');
+        c.width = 10; c.height = 10; t.drawImage(srcImg, 0, 0, 10, 10);
+        const d = t.getImageData(0, 0, 10, 10).data;
+        let r=0, g=0, b=0, total=0;
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i+3] > 120) { r += d[i]; g += d[i+1]; b += d[i+2]; total++; }
+        }
+        if(total === 0) return "#2563eb";
+        return "#" + ((1 << 24) + (Math.floor(r/total) << 16) + (Math.floor(g/total) << 8) + Math.floor(b/total)).toString(16).slice(1);
+    }
+
+    // Vector Text Alignment Processing Modules
+    function drawCurvedText(context, text, cx, cy, radius, isTop, fontSize, color) {
+        if (!text) return;
+        context.save();
+        context.font = `bold ${fontSize}px system-ui, sans-serif`;
+        context.fillStyle = color;
+        context.textAlign = "center";
+        context.textBaseline = isTop ? "bottom" : "top";
+
+        const anglePerChar = (fontSize * 0.72) / radius; 
+        const totalAngle = text.length * anglePerChar;
+        let startAngle = isTop ? -Math.PI / 2 - totalAngle / 2 : Math.PI / 2 - totalAngle / 2;
+
+        context.translate(cx, cy);
+        context.rotate(startAngle);
+
+        for (let i = 0; i < text.length; i++) {
+            context.save();
+            context.rotate(i * anglePerChar + anglePerChar / 2);
+            if (isTop) {
+                context.fillText(text[i], 0, -radius + 4);
+            } else {
+                context.translate(0, radius - 4);
+                context.rotate(Math.PI);
+                context.fillText(text[i], 0, 0);
+            }
+            context.restore();
+        }
+        context.restore();
+    }
+
+    // Unified Architecture Rendering Core
+    function renderLogoBlueprint(context, targetW, targetH, isExportMode) {
+        const shape = cropShape.value;
+        const radius = parseInt(radiusSlider.value);
+        const zoom = zoomSlider.value / 100;
+        const offsetX = parseInt(xSlider.value);
+        const offsetY = parseInt(ySlider.value);
+        const borderWidth = parseInt(borderWidthSlider.value);
+        const sBlur = parseInt(shadowBlurSlider.value);
+        const bColor = borderColorPicker.value;
+        
+        const centerX = targetW / 2;
+        const centerY = targetH / 2;
+
+        if (!isExportMode) {
+            // Visual Display Grid Layer
+            ctx.fillStyle = "#0c0e17"; ctx.fillRect(0, 0, targetW, targetH);
+            ctx.fillStyle = "#141724";
+            for (let x = 0; x < targetW; x += 20) {
+                for (let y = 0; y < targetH; y += 20) {
+                    if ((x + y) % 40 === 0) ctx.fillRect(x, y, 20, 20);
+                }
+            }
+        }
+
+        // Apply Layer Drop Shadow / Glow FX properties cleanly
+        context.save();
+        if (sBlur > 0) {
+            context.shadowBlur = sBlur;
+            context.shadowColor = bColor;
+        }
+
+        // Draw structural underlay block fill
+        if (!transparentBgCheckbox.checked) {
+            context.save();
+            buildShapePath(context, centerX, centerY, radius, shape);
+            context.fillStyle = bgColorPicker.value;
+            context.fill();
+            context.restore();
+        }
+        context.restore(); // Drop shadow boundary containment line isolated
+
+        // Photo Matrix Graphic Processing Clip
+        context.save();
+        buildShapePath(context, centerX, centerY, radius, shape);
+        context.clip();
+
+        // Apply hardware filters context attributes
+        const bVal = brightnessSlider.value;
+        const cVal = contrastSlider.value;
+        const gVal = grayscaleSlider.value;
+        context.filter = `brightness(${bVal}%) contrast(${cVal}%) grayscale(${gVal}%)`;
+
+        const iw = img.width * zoom;
+        const ih = img.height * zoom;
+        const ix = centerX - (iw / 2) + offsetX;
+        const iy = centerY - (ih / 2) + offsetY;
+        context.drawImage(img, ix, iy, iw, ih);
+        context.restore();
+        context.filter = "none"; // Purge filters matrix processing loops instantly
+
+        // Draw Typography Vector Layers
+        const fSize = parseInt(textSizeSlider.value);
+        const textCol = textColorPicker.value;
+        const textTrackRadius = radius - (borderWidth + fSize * 0.4); 
+
+        drawCurvedText(context, topTextInput.value.toUpperCase(), centerX, centerY, textTrackRadius, true, fSize, textCol);
+        drawCurvedText(context, bottomTextInput.value.toUpperCase(), centerX, centerY, textTrackRadius, false, fSize, textCol);
+
+        // Frame perimeter stroke pass layer
+        if (borderWidth > 0) {
+            context.save();
+            buildShapePath(context, centerX, centerY, radius, shape);
+            context.strokeStyle = bColor;
+            context.lineWidth = borderWidth;
+            context.stroke();
+            context.restore();
+        }
+    }
+
+    function draw() {
+        if (!img.src) return;
+        
+        // Dynamically reflect metric shifts over target labels
+        document.getElementById('radiusLabel').innerText = `Outer Size: ${radiusSlider.value}px`;
+        document.getElementById('zoomLabel').innerText = `Zoom Scale: ${zoomSlider.value}%`;
+        document.getElementById('brightLabel').innerText = `Brightness: ${brightnessSlider.value}%`;
+        document.getElementById('contrastLabel').innerText = `Contrast: ${contrastSlider.value}%`;
+        document.getElementById('grayLabel').innerText = `Grayscale Desaturate: ${grayscaleSlider.value}%`;
+        document.getElementById('borderLabel').innerText = `Stroke Thickness: ${borderWidthSlider.value}px`;
+        document.getElementById('shadowLabel').innerText = `Glow Outer Radius: ${shadowBlurSlider.value}px`;
+        document.getElementById('textSizeLabel').innerText = `Font Size: ${textSizeSlider.value}px`;
+
+        renderLogoBlueprint(ctx, canvas.width, canvas.height, false);
+    }
+
+    // Export Dashboard Processing Engine
+    downloadBtn.addEventListener('click', () => {
+        const outSize = parseInt(exportSizeSelect.value);
+        const radius = parseInt(radiusSlider.value);
+        
+        const outputCanvas = document.createElement('canvas');
+        outputCanvas.width = outSize;
+        outputCanvas.height = outSize;
+        const oCtx = outputCanvas.getContext('2d');
+
+        const boundingDimension = radius * 2;
+        const upscalingRatio = outSize / boundingDimension;
+
+        oCtx.save();
+        oCtx.scale(upscalingRatio, upscalingRatio);
+        oCtx.translate(radius - (canvas.width / 2), radius - (canvas.height / 2));
+        
+        renderLogoBlueprint(oCtx, canvas.width, canvas.height, true);
+        oCtx.restore();
+
+        const link = document.createElement('a');
+        link.download = `logo-suite-${outSize}x${outSize}.png`;
+        link.href = outputCanvas.toDataURL('image/png');
+        link.click();
+    });
+</script>
+
+</body>
+</html>
